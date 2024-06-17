@@ -1,24 +1,29 @@
 from __future__ import annotations
 
-from typing import Callable, Iterable, List, NamedTuple, Optional, Type
+from typing import TYPE_CHECKING, NamedTuple
 
-from ..types import DataTypeManager as DataTypeManagerABC
 from .base import ConstraintsBase, DataModel, DataModelFieldBase
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from datamodel_code_generator.types import DataTypeManager as DataTypeManagerABC
 
 
 class DataModelSet(NamedTuple):
-    data_model: Type[DataModel]
-    root_model: Type[DataModel]
-    field_model: Type[DataModelFieldBase]
-    data_type_manager: Type[DataTypeManagerABC]
-    dump_resolve_reference_action: Optional[Callable[[Iterable[str]], str]]
-    known_third_party: Optional[List[str]] = None
+    data_model: type[DataModel]
+    root_model: type[DataModel]
+    field_model: type[DataModelFieldBase]
+    data_type_manager: type[DataTypeManagerABC]
+    dump_resolve_reference_action: Callable[[Iterable[str]], str] | None
+    known_third_party: list[str] | None = None
 
 
 def get_data_model_types(
     data_model_type: DataModelType, target_python_version: PythonVersion
 ) -> DataModelSet:
-    from .. import DataModelType
+    from datamodel_code_generator import DataModelType
+
     from . import pydantic_v2
     from .types import DataTypeManager
 
@@ -31,4 +36,4 @@ def get_data_model_types(
     )
 
 
-__all__ = ["ConstraintsBase", "DataModel", "DataModelFieldBase"]
+__all__ = ["ConstraintsBase", "DataModel", "DataModelFieldBase", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType", "DataModelType"]

@@ -186,8 +186,7 @@ class BaseModel(BaseModelBase):
         )
         config_parameters: dict[str, Any] = {}
 
-        extra = self._get_config_extra()
-        if extra:
+        if extra := self._get_config_extra():
             config_parameters["extra"] = extra
 
         for from_, to, invert in self.CONFIG_ATTRIBUTES:
