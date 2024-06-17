@@ -1,0 +1,79 @@
+[project]
+name = "chiaro"
+dynamic = ["version"]
+description = "A flexible and dynamic framework for handling JSON schemas and their corresponding data models in Python."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph M Courtney", email = "5942706+josephcourtney@users.noreply.github.com" },
+]
+dependencies = [
+    "pydantic",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",              # Linter
+    "mypy",              # Static type checker
+    "pytest",            # Testing framework
+    "pytest-asyncio",    # AsyncIO support for pytest
+    "pytest-mock",       # Mocking support for pytest
+    "coverage[toml]",    # Test coverage
+    "sphinx",            # Documentation generator
+    "sphinx-rtd-theme",  # ReadTheDocs theme for Sphinx
+    "myst-parser",       # Markdown support for Sphinx
+    "sphinx-autobuild",  # Auto build for Sphinx documentation
+    "sphinx.ext.autodoc" # Auto documentation from docstrings
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/chiaro/__init__.py"
+
+[tool.pytest.ini_options]
+addopts = "--cov=chiaro -n auto"
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["chiaro"]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]
+
+ignore_errors = true
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+
+[tool.mypy]
+files = ["chiaro", "tests"]
+no_implicit_optional = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "chiaro"
+ignore_missing_imports = true

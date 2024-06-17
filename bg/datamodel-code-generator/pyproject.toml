@@ -1,0 +1,11 @@
+[project]
+name = "datamodel-code-generator"
+version = "0.0.0"
+description = "Datamodel Code Generator"
+authors = [{ name = "Koudai Aono", email = "koxudaxi@gmail.com" }]
+readme = "README.md"
+license = "MIT"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
