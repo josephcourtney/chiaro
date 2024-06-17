@@ -1,20 +1,16 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 from typing import (
     Any,
     ClassVar,
-    DefaultDict,
     Dict,
-    FrozenSet,
-    Iterator,
     List,
-    Optional,
     Set,
     Tuple,
     TypeVar,
-    Union,
 )
 from warnings import warn
 
@@ -48,8 +44,8 @@ ConstraintsBaseT = TypeVar("ConstraintsBaseT", bound="ConstraintsBase")
 
 
 class ConstraintsBase(_BaseModel):
-    unique_items: Optional[bool] = Field(None, alias="uniqueItems")
-    _exclude_fields: ClassVar[Set[str]] = {"has_constraints"}
+    unique_items: bool | None = Field(None, alias="uniqueItems")
+    _exclude_fields: ClassVar[set[str]] = {"has_constraints"}
     model_config = ConfigDict(arbitrary_types_allowed=True, ignored_types=(cached_property,))
 
     @cached_property
@@ -57,7 +53,7 @@ class ConstraintsBase(_BaseModel):
         return any(v is not None for v in self.dict().values())
 
     @staticmethod
-    def merge_constraints(a: ConstraintsBaseT, b: ConstraintsBaseT) -> Optional[ConstraintsBaseT]:
+    def merge_constraints(a: ConstraintsBaseT, b: ConstraintsBaseT) -> ConstraintsBaseT | None:
         constraints_class = None
         if isinstance(a, ConstraintsBase):
             root_type_field_constraints = {k: v for k, v in a.dict(by_alias=True).items() if v is not None}
@@ -74,32 +70,31 @@ class ConstraintsBase(_BaseModel):
         if not issubclass(constraints_class, ConstraintsBase):
             return None
 
-        return constraints_class.parse_obj({
-            **root_type_field_constraints,
-            **model_field_constraints,
-        })
+        return constraints_class.parse_obj(
+            root_type_field_constraints | model_field_constraints
+        )
 
 
 class DataModelFieldBase(_BaseModel):
-    name: Optional[str] = None
-    default: Optional[Any] = None
+    name: str | None = None
+    default: Any | None = None
     required: bool = False
-    alias: Optional[str] = None
+    alias: str | None = None
     data_type: DataType
     constraints: Any = None
     strip_default_none: bool = False
-    nullable: Optional[bool] = None
-    parent: Optional[Any] = None
-    extras: Dict[str, Any] = {}
+    nullable: bool | None = None
+    parent: Any | None = None
+    extras: ClassVar[dict[str, Any]] = {}
     use_annotated: bool = False
     has_default: bool = False
     use_field_description: bool = False
     const: bool = False
-    original_name: Optional[str] = None
+    original_name: str | None = None
     use_default_kwarg: bool = False
     use_one_literal_as_default: bool = False
-    _exclude_fields: ClassVar[Set[str]] = {"parent"}
-    _pass_fields: ClassVar[Set[str]] = {"parent", "data_type"}
+    _exclude_fields: ClassVar[set[str]] = {"parent"}
+    _pass_fields: ClassVar[set[str]] = {"parent", "data_type"}
     can_have_extra_keys: ClassVar[bool] = True
 
     def __init__(self, **data: Any) -> None:
@@ -110,7 +105,7 @@ class DataModelFieldBase(_BaseModel):
 
     def process_const(self) -> None:
         if "const" not in self.extras:
-            return None
+            return
         self.default = self.extras["const"]
         self.const = True
         self.required = False
@@ -122,27 +117,25 @@ class DataModelFieldBase(_BaseModel):
 
         if not type_hint:
             return NONE
-        elif self.has_default_factory:
+        if self.has_default_factory or (self.data_type.is_optional and self.data_type.type != ANY):
             return type_hint
-        elif self.data_type.is_optional and self.data_type.type != ANY:
-            return type_hint
-        elif self.nullable is not None:
+        if self.nullable is not None:
             if self.nullable:
                 return get_optional_type(type_hint, self.data_type.use_union_operator)
             return type_hint
-        elif self.required:
+        if self.required or not self.fall_back_to_nullable:
             return type_hint
-        elif self.fall_back_to_nullable:
-            return get_optional_type(type_hint, self.data_type.use_union_operator)
-        else:
-            return type_hint
+        return get_optional_type(type_hint, self.data_type.use_union_operator)
 
-    @property
-    def imports(self) -> Tuple[Import, ...]:
+    def imports(self) -> tuple[Import, ...]:
         type_hint = self.type_hint
         has_union = not self.data_type.use_union_operator and UNION_PREFIX in type_hint
-        imports: List[Union[Tuple[Import], Iterator[Import]]] = [
-            (i for i in self.data_type.all_imports if not (not has_union and i == IMPORT_UNION))
+        imports: list[tuple[Import] | Iterator[Import]] = [
+            (
+                i
+                for i in self.data_type.all_imports
+                if has_union or i != IMPORT_UNION
+            )
         ]
 
         if self.fall_back_to_nullable:
@@ -150,9 +143,8 @@ class DataModelFieldBase(_BaseModel):
                 self.nullable or (self.nullable is None and not self.required)
             ) and not self.data_type.use_union_operator:
                 imports.append((IMPORT_OPTIONAL,))
-        else:
-            if self.nullable and not self.data_type.use_union_operator:
-                imports.append((IMPORT_OPTIONAL,))
+        elif self.nullable and not self.data_type.use_union_operator:
+            imports.append((IMPORT_OPTIONAL,))
         if self.use_annotated and self.annotated:
             import_annotated = (
                 IMPORT_ANNOTATED
@@ -163,7 +155,7 @@ class DataModelFieldBase(_BaseModel):
         return chain_as_tuple(*imports)
 
     @property
-    def docstring(self) -> Optional[str]:
+    def docstring(self) -> str | None:
         if self.use_field_description:
             description = self.extras.get("description", None)
             if description is not None:
@@ -171,16 +163,15 @@ class DataModelFieldBase(_BaseModel):
         return None
 
     @property
-    def unresolved_types(self) -> FrozenSet[str]:
+    def unresolved_types(self) -> frozenset[str]:
         return self.data_type.unresolved_types
 
     @property
-    def field(self) -> Optional[str]:
-        """for backwards compatibility"""
+    def field(self) -> str | None:
         return None
 
     @property
-    def method(self) -> Optional[str]:
+    def method(self) -> str | None:
         return None
 
     @property
@@ -188,7 +179,7 @@ class DataModelFieldBase(_BaseModel):
         return repr(self.default)
 
     @property
-    def annotated(self) -> Optional[str]:
+    def annotated(self) -> str | None:
         return None
 
     @property
@@ -207,7 +198,7 @@ def get_template(template_file_path: Path) -> Template:
     return environment.get_template(template_file_path.name)
 
 
-def get_module_path(name: str, file_path: Optional[Path]) -> List[str]:
+def get_module_path(name: str, file_path: Path | None) -> List[str]:
     if file_path:
         return [
             *file_path.parts[:-1],
@@ -217,7 +208,7 @@ def get_module_path(name: str, file_path: Optional[Path]) -> List[str]:
     return name.split(".")[:-1]
 
 
-def get_module_name(name: str, file_path: Optional[Path]) -> str:
+def get_module_name(name: str, file_path: Path | None) -> str:
     return ".".join(get_module_path(name, file_path))
 
 
@@ -251,39 +242,40 @@ UNDEFINED: Any = object()
 class DataModel(TemplateBase, Nullable, ABC):
     TEMPLATE_FILE_PATH: ClassVar[str] = ""
     BASE_CLASS: ClassVar[str] = ""
-    DEFAULT_IMPORTS: ClassVar[Tuple[Import, ...]] = ()
+    DEFAULT_IMPORTS: ClassVar[tuple[Import, ...]] = ()
 
     def __init__(
         self,
         *,
         reference: Reference,
-        fields: List[DataModelFieldBase],
-        decorators: Optional[List[str]] = None,
-        base_classes: Optional[List[Reference]] = None,
-        custom_base_class: Optional[str] = None,
-        custom_template_dir: Optional[Path] = None,
-        extra_template_data: Optional[DefaultDict[str, Dict[str, Any]]] = None,
-        methods: Optional[List[str]] = None,
-        path: Optional[Path] = None,
-        description: Optional[str] = None,
+        fields: list[DataModelFieldBase],
+        decorators: list[str] | None = None,
+        base_classes: list[Reference] | None = None,
+        custom_base_class: str | None = None,
+        custom_template_dir: Path | None = None,
+        extra_template_data: defaultdict[str, Dict[str, Any]] | None = None,
+        methods: list[str] | None = None,
+        path: Path | None = None,
+        description: str | None = None,
         default: Any = UNDEFINED,
         nullable: bool = False,
     ) -> None:
         if not self.TEMPLATE_FILE_PATH:
-            raise Exception("TEMPLATE_FILE_PATH is undefined")
+            msg = "TEMPLATE_FILE_PATH is undefined"
+            raise Exception(msg)
 
-        self._custom_template_dir: Optional[Path] = custom_template_dir
-        self.decorators: List[str] = decorators or []
-        self._additional_imports: List[Import] = []
+        self._custom_template_dir: Path | None = custom_template_dir
+        self.decorators: list[str] = decorators or []
+        self._additional_imports: list[Import] = []
         self.custom_base_class = custom_base_class
         if base_classes:
-            self.base_classes: List[BaseClassDataType] = [
+            self.base_classes: list[BaseClassDataType] = [
                 BaseClassDataType(reference=b) for b in base_classes
             ]
         else:
             self.set_base_class()
 
-        self.file_path: Optional[Path] = path
+        self.file_path: Path | None = path
         self.reference: Reference = reference
 
         self.reference.source = self
@@ -298,12 +290,10 @@ class DataModel(TemplateBase, Nullable, ABC):
             if base_class.reference:
                 base_class.reference.children.append(self)
 
-        if extra_template_data:
-            all_model_extra_template_data = extra_template_data.get(ALL_MODEL)
-            if all_model_extra_template_data:
-                self.extra_template_data.update(all_model_extra_template_data)
+        if extra_template_data and (all_model_extra_template_data := extra_template_data.get(ALL_MODEL)):
+            self.extra_template_data.update(all_model_extra_template_data)
 
-        self.methods: List[str] = methods or []
+        self.methods: list[str] = methods or []
 
         self.description = description
         for field in self.fields:
@@ -313,16 +303,15 @@ class DataModel(TemplateBase, Nullable, ABC):
         self.default: Any = default
         self._nullable: bool = nullable
 
-    def _validate_fields(self, fields: List[DataModelFieldBase]) -> List[DataModelFieldBase]:
-        names: Set[str] = set()
-        unique_fields: List[DataModelFieldBase] = []
+    def _validate_fields(self, fields: list[DataModelFieldBase]) -> list[DataModelFieldBase]:
+        names: set[str] = set()
+        unique_fields: list[DataModelFieldBase] = []
         for field in fields:
             if field.name:
                 if field.name in names:
                     warn(f"Field name `{field.name}` is duplicated on {self.name}")
                     continue
-                else:
-                    names.add(field.name)
+                names.add(field.name)
             unique_fields.append(field)
         return unique_fields
 
@@ -330,7 +319,7 @@ class DataModel(TemplateBase, Nullable, ABC):
         base_class = self.custom_base_class or self.BASE_CLASS
         if not base_class:
             self.base_classes = []
-            return None
+            return
         base_class_import = Import.from_full_path(base_class)
         self._additional_imports.append(base_class_import)
         self.base_classes = [BaseClassDataType.from_import(base_class_import)]
@@ -345,14 +334,14 @@ class DataModel(TemplateBase, Nullable, ABC):
         return template_file_path
 
     @property
-    def imports(self) -> Tuple[Import, ...]:
+    def imports(self) -> tuple[Import, ...]:
         return chain_as_tuple(
             (i for f in self.fields for i in f.imports),
             self._additional_imports,
         )
 
     @property
-    def reference_classes(self) -> FrozenSet[str]:
+    def reference_classes(self) -> frozenset[str]:
         return frozenset(
             {r.reference.path for r in self.base_classes if r.reference}
             | {t for f in self.fields for t in f.unresolved_types}
@@ -372,9 +361,7 @@ class DataModel(TemplateBase, Nullable, ABC):
 
     @staticmethod
     def _get_class_name(name: str) -> str:
-        if "." in name:
-            return name.rsplit(".", 1)[-1]
-        return name
+        return name.rsplit(".", 1)[-1] if "." in name else name
 
     @property
     def class_name(self) -> str:
@@ -392,7 +379,7 @@ class DataModel(TemplateBase, Nullable, ABC):
         return self._get_class_name(self.duplicate_name)
 
     @property
-    def module_path(self) -> List[str]:
+    def module_path(self) -> list[str]:
         return get_module_path(self.name, self.file_path)
 
     @property
@@ -413,8 +400,8 @@ class DataModel(TemplateBase, Nullable, ABC):
     def path(self) -> str:
         return self.reference.path
 
-    def render(self, *, class_name: Optional[str] = None) -> str:
-        response = self._render(
+    def render(self, *, class_name: str | None = None) -> str:
+        return self._render(
             class_name=class_name or self.class_name,
             fields=self.fields,
             decorators=self.decorators,
@@ -423,4 +410,3 @@ class DataModel(TemplateBase, Nullable, ABC):
             description=self.description,
             **self.extra_template_data,
         )
-        return response

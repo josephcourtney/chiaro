@@ -1,6 +1,5 @@
 import contextlib
 import os
-import sys
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
@@ -32,10 +31,6 @@ def load_yaml(stream: str | TextIO) -> Any:
     return yaml.load(stream, Loader=SafeLoader)
 
 
-
-
-
-
 @contextlib.contextmanager
 def chdir(path: Path | None) -> Iterator[None]:
     prev_cwd = Path.cwd()
@@ -46,13 +41,10 @@ def chdir(path: Path | None) -> Iterator[None]:
         os.chdir(prev_cwd)
 
 
-
-
 JSON_SCHEMA_URLS: tuple[str, ...] = (
     "http://json-schema.org/",
     "https://json-schema.org/",
 )
-
 
 
 class InputFileType(Enum):
@@ -102,7 +94,6 @@ class Error(Exception):
 
 class InvalidClassNameError(Error):
     def __init__(self, class_name: str) -> None: ...
-
 
 
 def generate(
@@ -278,8 +269,6 @@ def generate(
 
         if file is not None:
             file.close()
-
-
 
 
 __all__ = [

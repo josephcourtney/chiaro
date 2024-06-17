@@ -1,37 +1,27 @@
 from __future__ import annotations
 
 import copy
+import tomllib
+from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Dict, TypeVar
+from typing import Any, Callable, Literal, Protocol, TypeVar, runtime_checkable
 
 import pydantic
 from packaging import version
 from pydantic import BaseModel as _BaseModel
+from pydantic import ConfigDict
+from pydantic import field_validator as field_validator_v2
+from pydantic import model_validator as model_validator_v2
+from yaml import CSafeLoader as SafeLoader
 
 PYDANTIC_VERSION = version.parse(
     pydantic.VERSION if isinstance(pydantic.VERSION, str) else str(pydantic.VERSION)
 )
 
+def load_toml(path: Path) -> dict[str, Any]:
+    with path.open("rb") as f:
+        return tomllib.load(f)
 
-from typing import Protocol
-from typing import runtime_checkable
-from yaml import CSafeLoader as SafeLoader
-
-from functools import cached_property
-
-
-try:
-    import tomllib
-
-    def load_toml(path: Path) -> Dict[str, Any]:
-        with path.open("rb") as f:
-            return tomllib.load(f)
-
-except ImportError:
-    import toml
-
-    def load_toml(path: Path) -> Dict[str, Any]:
-        return toml.load(path)
 
 
 SafeLoaderTemp = copy.deepcopy(SafeLoader)
@@ -49,7 +39,6 @@ def model_validator(
     mode: Literal["before", "after"] = "after",
 ) -> Callable[[Callable[[Model, Any], Any]], Callable[[Model, Any], Any]]:
     def inner(method: Callable[[Model, Any], Any]) -> Callable[[Model, Any], Any]:
-        from pydantic import model_validator as model_validator_v2
 
         return model_validator_v2(mode=mode)(method)
 
@@ -62,14 +51,12 @@ def field_validator(
     mode: Literal["before", "after"] = "after",
 ) -> Callable[[Any], Callable[[Model, Any], Any]]:
     def inner(method: Callable[[Model, Any], Any]) -> Callable[[Model, Any], Any]:
-        from pydantic import field_validator as field_validator_v2
 
         return field_validator_v2(field_name, *fields, mode=mode)(method)
 
     return inner
 
 
-from pydantic import ConfigDict as ConfigDict
 
 
 class BaseModel(_BaseModel):
